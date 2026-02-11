@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+ENV/
+
+# Streamlit
+.streamlit/
+
+# Local data (Private)
+contatos.xlsx
+PyWhatKit_DB.txt
+*.xlsx
+*.xls
+*.csv
+
+# Logs
+*.log
