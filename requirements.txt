@@ -4,4 +4,4 @@ openpyxl==3.1.2
 pywhatkit==5.4
 selenium>=4.0.0
 webdriver-manager>=4.0.0
-st-gsheets-connection
+streamlit-gsheets-connection
