@@ -24,6 +24,18 @@ except Exception:
 if 'driver' not in st.session_state:
     st.session_state.driver = None
 
+def check_driver_alive():
+    """Verifica se o driver ainda está ativo e funcional"""
+    if st.session_state.driver:
+        try:
+            # Tentar acessar o título da página para ver se o navegador responde
+            _ = st.session_state.driver.title
+            return True
+        except:
+            st.session_state.driver = None
+            return False
+    return False
+
 def get_gsheets_download_url(url):
     """Converte um link de compartilhamento do Google Sheets em um link de exportação direta para CSV"""
     try:
@@ -614,10 +626,15 @@ if df is not None:
             button_label = "🔓 1. Abrir WhatsApp Web" if is_local else "🔓 1. Iniciar Sessão (Nuvem)"
             
             if st.button(button_label, help="Abre o navegador para você escanear o QR Code", use_container_width=True):
+                # Limpar driver antigo se estiver quebrado
+                check_driver_alive()
+                
                 driver = init_browser(headless=not is_local)
                 if driver:
                     driver.get("https://web.whatsapp.com")
                     st.success("Navegador iniciado!")
+                    if not is_local:
+                        st.info("💡 **Atenção:** Na nuvem o navegador é invisível. Abra o menu **'Ver Tela do WhatsApp'** logo abaixo para escanear o QR Code.")
         
         with col_conn2:
             if st.button("🔒 Fechar Conexão", help="Fecha o navegador e encerra a sessão", use_container_width=True):
