@@ -534,12 +534,18 @@ if df is not None:
         st.info("💡 **Dica:** Você pode adicionar, remover ou editar contatos diretamente na tabela abaixo. Clique em **Limpar e Corrigir** para ajustar automaticamente os números.")
         
         # Inicializar estado da tabela se não existir ou se for um novo arquivo
-        # Identificador simples para o arquivo (nome e tamanho)
-        file_id = f"{uploaded_file.name if uploaded_file else 'default'}_{df.shape}"
+        # Identificador simples para o arquivo (nome, link ou tamanho)
+        if use_gsheets and gsheets_url:
+            file_id = f"gsheets_{gsheets_url}_{df.shape}"
+        else:
+            file_id = f"{uploaded_file.name if uploaded_file else 'default'}_{df.shape}"
         
         if "current_file_id" not in st.session_state or st.session_state.current_file_id != file_id:
             st.session_state.current_file_id = file_id
-            st.session_state.editor_data = df[['Nome', 'Telefone', 'texto']].copy()
+            new_df = df[['Nome', 'Telefone', 'texto']].copy()
+            # Forçar Telefone para string para evitar erros no st.data_editor
+            new_df['Telefone'] = new_df['Telefone'].astype(str)
+            st.session_state.editor_data = new_df
         
         # Botões de Ação para a Tabela
         col_actions1, col_actions2, col_dummy = st.columns([1, 1, 2])
