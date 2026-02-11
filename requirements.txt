@@ -1,7 +1,6 @@
 streamlit
 pandas
 openpyxl
-pywhatkit
 selenium
 webdriver-manager
 st-gsheets-connection
