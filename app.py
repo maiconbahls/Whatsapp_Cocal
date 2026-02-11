@@ -11,8 +11,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
-import pywhatkit as kit
 from streamlit_gsheets import GSheetsConnection
+
+# Importação segura do pywhatkit (pode falhar em servidores sem tela)
+try:
+    import pywhatkit as kit
+    HAS_PYWHATKIT = True
+except Exception:
+    HAS_PYWHATKIT = False
 
 # Variáveis globais para manter a sessão do navegador
 if 'driver' not in st.session_state:
@@ -35,18 +41,19 @@ def init_browser(headless=False):
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
             
-            # Tentar usar o webdriver_manager primeiro
+            # Tentar usar o webdriver_manager primeiro (funciona bem local)
             try:
                 service = Service(ChromeDriverManager().install())
                 driver = webdriver.Chrome(service=service, options=options)
             except Exception as e1:
-                # Fallback para Streamlit Cloud (usando o chromium instalado via packages.txt)
+                # Fallback para Streamlit Cloud / Linux
                 try:
-                    options.binary_location = "/usr/bin/chromium"
+                    # No Linux/Streamlit Cloud, o chromium-driver já está no PATH
                     driver = webdriver.Chrome(options=options)
                 except Exception as e2:
-                    # Fallback local normal
+                    # Tentativa final: especificar caminhos comuns no Linux
                     try:
+                        options.binary_location = "/usr/bin/chromium"
                         driver = webdriver.Chrome(options=options)
                     except Exception as e3:
                         raise Exception(f"Erro ao iniciar Chrome: {str(e1)} | {str(e2)} | {str(e3)}")
@@ -411,10 +418,10 @@ def send_messages(df, delay):
             # Atualizar status
             status_text.markdown(f"**Enviando para:** {nome} ({telefone})")
             
-            # Enviar mensagem instantaneamente
-            # wait_time: tempo para carregar o WhatsApp Web (Aumentado para 20s)
-            # tab_close: True para fechar a aba
-            # close_time: tempo extra após carregar para garantir envio (Aumentado para 10s)
+            # Enviar mensagem instantaneamente usando pywhatkit (Se disponível)
+            if not HAS_PYWHATKIT:
+                raise Exception("O módulo PyWhatKit não está disponível neste ambiente.")
+                
             kit.sendwhatmsg_instantly(
                 phone_no=telefone, 
                 message=mensagem, 
