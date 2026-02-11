@@ -24,6 +24,17 @@ except Exception:
 if 'driver' not in st.session_state:
     st.session_state.driver = None
 
+def get_gsheets_download_url(url):
+    """Converte um link de compartilhamento do Google Sheets em um link de exportação direta para CSV"""
+    try:
+        if "/d/" in url:
+            # Extrair o ID da planilha
+            sheet_id = url.split("/d/")[1].split("/")[0]
+            return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+        return url
+    except Exception:
+        return url
+
 def init_browser(headless=False):
     """Inicializa o navegador Chrome controlado pelo Selenium"""
     if st.session_state.driver is None:
@@ -458,13 +469,21 @@ def send_messages(df, delay):
 # Determinar fonte de dados
 if use_gsheets and gsheets_url:
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(spreadsheet=gsheets_url)
+        # Tentar ler usando o método direto de exportação (mais robusto para links públicos)
+        download_url = get_gsheets_download_url(gsheets_url)
+        df = pd.read_csv(download_url)
+        
+        # Se falhar ou estiver vazio, tentar o método oficial do Streamlit como fallback
+        if df is None or df.empty:
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            df = conn.read(spreadsheet=gsheets_url)
+            
         # Garantir que as colunas existem
         if not validate_data(df):
             df = None
     except Exception as e:
         st.error(f"Erro ao conectar com Google Sheets: {e}")
+        st.info("💡 **Dica:** Verifique se a planilha está compartilhada como 'Qualquer pessoa com o link'.")
         df = None
 elif uploaded_file is not None:
     df = load_data(uploaded_file)
