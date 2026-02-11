@@ -301,7 +301,7 @@ with st.sidebar:
     st.markdown("### 📊 Google Sheets")
     gsheets_url = st.text_input(
         "Link da Planilha Google",
-        placeholder="https://docs.google.com/spreadsheets/d/...",
+        value="https://docs.google.com/spreadsheets/d/1WotL3kpta1vw3_hM7mzAU57ETGEsTQdf/edit?usp=sharing",
         help="Cole o link da sua planilha Google (ela deve estar compartilhada como 'Qualquer pessoa com o link')"
     )
     
