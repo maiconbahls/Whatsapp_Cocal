@@ -348,6 +348,21 @@ with st.sidebar:
         value=20,
         help="Tempo de espera entre cada envio para evitar bloqueios"
     )
+
+    st.markdown("---")
+    
+    # Configuração de Visualização do Navegador
+    st.markdown("### 🖥️ Visualização")
+    # Padrão: Visível no Windows (local), Invisível em outros (cloud)
+    # Mas se o OS detection falhar, o usuário pode forçar aqui.
+    default_visibility = True 
+    st.toggle(
+        "Mostrar Navegador (Janela)", 
+        value=default_visibility, 
+        key="force_visible",
+        help="Ative para ver o navegador abrindo uma janela. Desative para rodar em segundo plano (Headless)."
+    )
+
     
     st.markdown("---")
     
@@ -616,25 +631,32 @@ if df is not None:
         # Nova Seção de Controle do Navegador e Envio
         st.markdown("---")
         st.markdown("### 🚀 Controle de Envio")
-        st.info("ℹ️ **Passo a Passo para Envio em Segundo Plano:**\n1. Clique em **'Abrir WhatsApp Web'**.\n2. Escaneie o QR Code na janela que abrir.\n3. Volte aqui e clique em **'Enviar Mensagens'**.\n4. **Pode minimizar a janela do Chrome** e usar o PC normalmente!")
+        st.info("ℹ️ **Passo a Passo:**\n1. Escolha se quer ver o navegador ou rodar escondido (menu lateral).\n2. Clique em **'Abrir WhatsApp Web'**.\n3. Escaneie o QR Code.\n4. Clique em **'Enviar Mensagens'**.")
 
         col_conn1, col_conn2 = st.columns(2)
         
+        # Obter configuração de visibilidade (padrão visível se não definido)
+        # Se 'force_visible' não estiver no session_state (porque está na sidebar), pegamos o valor do widget
+        # Mas como o widget está na sidebar e o script roda top-down, precisamos garantir que ele foi lido.
+        # O widget 'force_visible' foi definido na sidebar acima? Ainda não.
+        # Precisamos mover o toggle da sidebar ou definir aqui.
+        # Vamos usar uma variável local baseada no toggle que adicionaremos na sidebar.
+        
+        is_headless = not st.session_state.get("force_visible", True)
+
         with col_conn1:
-            # Detectar se está rodando local ou remoto
-            is_local = os.name == 'nt' # Windows é local
-            button_label = "🔓 1. Abrir WhatsApp Web" if is_local else "🔓 1. Iniciar Sessão (Nuvem)"
+            button_label = "🔓 1. Abrir WhatsApp Web" if not is_headless else "🔓 1. Iniciar Sessão (Oculto)"
             
             if st.button(button_label, help="Abre o navegador para você escanear o QR Code", use_container_width=True):
                 # Limpar driver antigo se estiver quebrado
                 check_driver_alive()
                 
-                driver = init_browser(headless=not is_local)
+                driver = init_browser(headless=is_headless)
                 if driver:
                     driver.get("https://web.whatsapp.com")
                     st.success("Navegador iniciado!")
-                    if not is_local:
-                        st.info("💡 **Atenção:** Na nuvem o navegador é invisível. Abra o menu **'Ver Tela do WhatsApp'** logo abaixo para escanear o QR Code.")
+                    if is_headless:
+                        st.info("💡 **Modo Oculto:** O navegador está rodando em segundo plano. Use a pré-visualização abaixo para ver o QR Code.")
         
         with col_conn2:
             if st.button("🔒 Fechar Conexão", help="Fecha o navegador e encerra a sessão", use_container_width=True):
@@ -644,7 +666,7 @@ if df is not None:
 
         # Mostrar QR Code se for remoto ou se o usuário quiser ver
         if st.session_state.driver:
-            with st.expander("📸 Ver Tela do WhatsApp (QR Code)", expanded=not is_local):
+            with st.expander("📸 Ver Tela do WhatsApp (QR Code / Monitoramento)", expanded=True):
                 if st.button("🔄 Atualizar Captura de Tela"):
                     pass # Só para forçar rerun do componente
                 
