@@ -72,6 +72,13 @@ def init_browser(headless=False):
                 options.add_argument("--disable-features=VizDisplayCompositor")
                 options.add_argument("--single-process")        # Mais estável em containers
                 
+                # User-Agent moderno para o WhatsApp Web aceitar a conexão
+                # (o Chromium do Streamlit Cloud pode ser antigo e o WhatsApp exige Chrome 85+)
+                options.add_argument(
+                    '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+                    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                )
+                
                 # Definir localização do Chromium no Linux
                 if os.path.exists("/usr/bin/chromium"):
                     options.binary_location = "/usr/bin/chromium"
