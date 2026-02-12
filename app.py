@@ -676,68 +676,124 @@ if df is not None:
         # Nova Seção de Controle do Navegador e Envio
         st.markdown("---")
         st.markdown("### 🚀 Controle de Envio")
-        st.info("ℹ️ **Passo a Passo:**\n1. Escolha se quer ver o navegador ou rodar escondido (menu lateral).\n2. Clique em **'Abrir WhatsApp Web'**.\n3. Escaneie o QR Code.\n4. Clique em **'Enviar Mensagens'**.")
-
-        col_conn1, col_conn2 = st.columns(2)
         
-        # Obter configuração de visibilidade (padrão visível se não definido)
-        # Se 'force_visible' não estiver no session_state (porque está na sidebar), pegamos o valor do widget
-        # Mas como o widget está na sidebar e o script roda top-down, precisamos garantir que ele foi lido.
-        # O widget 'force_visible' foi definido na sidebar acima? Ainda não.
-        # Precisamos mover o toggle da sidebar ou definir aqui.
-        # Vamos usar uma variável local baseada no toggle que adicionaremos na sidebar.
+        # Verificar se há sessão ativa
+        has_active_session = check_driver_alive()
         
-        is_headless = not st.session_state.get("force_visible", True)
-
-        with col_conn1:
-            button_label = "🔓 1. Abrir WhatsApp Web" if not is_headless else "🔓 1. Iniciar Sessão (Oculto)"
+        # === INDICADOR DE STATUS DA SESSÃO ===
+        if has_active_session:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a7a1a, #2ecc40); padding: 1rem 1.5rem; border-radius: 10px; margin-bottom: 1rem;">
+                <span style="font-size: 1.2rem; color: white; font-weight: 600;">
+                    🟢 WhatsApp Conectado — Sessão Ativa
+                </span>
+                <p style="color: rgba(255,255,255,0.85); margin: 0.3rem 0 0 0; font-size: 0.9rem;">
+                    O navegador está rodando e pronto para enviar mensagens.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #555, #888); padding: 1rem 1.5rem; border-radius: 10px; margin-bottom: 1rem;">
+                <span style="font-size: 1.2rem; color: white; font-weight: 600;">
+                    ⚪ Nenhuma sessão ativa
+                </span>
+                <p style="color: rgba(255,255,255,0.85); margin: 0.3rem 0 0 0; font-size: 0.9rem;">
+                    Clique em "Conectar WhatsApp" para iniciar uma nova sessão com seu número.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # === INSTRUÇÕES PARA NOVOS USUÁRIOS ===
+        with st.expander("📖 Como funciona? (Leia se é a primeira vez)", expanded=not has_active_session):
+            st.markdown("""
+            ### 👥 Uso por Múltiplos Usuários
             
-            if st.button(button_label, help="Abre o navegador para você escanear o QR Code", use_container_width=True):
+            Cada pessoa que acessa este link tem sua **sessão independente**. Ou seja:
+            
+            - ✅ **Você conecta o SEU WhatsApp** escaneando o QR Code com o seu celular.
+            - ✅ **As mensagens são enviadas do SEU número**, não de outro.
+            - ✅ **Outro colega** pode abrir o mesmo link e conectar o WhatsApp dele, sem interferir no seu.
+            - ✅ Quando terminar, clique em **"Desconectar"** para encerrar sua sessão com segurança.
+            
+            ### 📋 Passo a Passo
+            
+            | Etapa | O que fazer |
+            |:-----:|:------------|
+            | **1** | Clique em **"🔗 Conectar WhatsApp"** |
+            | **2** | Expanda **"Ver Tela do WhatsApp"** e escaneie o **QR Code** com o celular |
+            | **3** | Aguarde aparecer **"WhatsApp Conectado"** |
+            | **4** | Clique em **"📨 Enviar Mensagens"** |
+            | **5** | Ao terminar, clique em **"🔌 Desconectar"** |
+            """)
+        
+        st.markdown("---")
+        
+        # === BOTÕES DE CONTROLE ===
+        is_headless = not st.session_state.get("force_visible", True)
+        
+        if not has_active_session:
+            # --- BOTÃO: CONECTAR (só aparece se NÃO está conectado) ---
+            if st.button("🔗 1. Conectar Meu WhatsApp", type="primary", use_container_width=True, 
+                         help="Inicia um navegador e abre o WhatsApp Web para você escanear o QR Code"):
                 # Limpar driver antigo se estiver quebrado
                 check_driver_alive()
                 
-                driver = init_browser(headless=is_headless)
-                if driver:
-                    driver.get("https://web.whatsapp.com")
-                    st.success("Navegador iniciado!")
-                    if is_headless:
-                        st.info("💡 **Modo Oculto:** O navegador está rodando em segundo plano. Use a pré-visualização abaixo para ver o QR Code.")
-        
-        with col_conn2:
-            if st.button("🔒 Fechar Conexão", help="Fecha o navegador e encerra a sessão", use_container_width=True):
-                close_browser()
-                st.info("Conexão fechada.")
-                st.rerun()
+                with st.spinner("⏳ Iniciando navegador..."):
+                    driver = init_browser(headless=is_headless)
+                    if driver:
+                        driver.get("https://web.whatsapp.com")
+                        st.success("✅ Navegador iniciado! Expanda a seção abaixo para ver o QR Code.")
+                        st.rerun()
+        else:
+            # --- BOTÕES: DESCONECTAR + NOVA SESSÃO (só aparecem se está conectado) ---
+            col_disc1, col_disc2 = st.columns(2)
+            
+            with col_disc1:
+                if st.button("🔌 Desconectar WhatsApp", use_container_width=True,
+                             help="Encerra sua sessão para que outro usuário possa usar"):
+                    close_browser()
+                    st.info("✅ Sessão encerrada! Outro usuário pode conectar agora.")
+                    st.rerun()
+            
+            with col_disc2:
+                if st.button("🔄 Reconectar (Novo QR Code)", use_container_width=True,
+                             help="Fecha a sessão atual e inicia uma nova"):
+                    close_browser()
+                    with st.spinner("⏳ Reiniciando..."):
+                        driver = init_browser(headless=is_headless)
+                        if driver:
+                            driver.get("https://web.whatsapp.com")
+                            st.success("✅ Nova sessão iniciada! Escaneie o QR Code abaixo.")
+                            st.rerun()
 
-        # Mostrar QR Code se for remoto ou se o usuário quiser ver
+        # === VISUALIZAÇÃO DO WHATSAPP WEB ===
         if st.session_state.driver:
             with st.expander("📸 Ver Tela do WhatsApp (QR Code / Monitoramento)", expanded=True):
                 if st.button("🔄 Atualizar Captura de Tela"):
-                    pass # Só para forçar rerun do componente
+                    pass  # Força rerun
                 
                 try:
                     screenshot = st.session_state.driver.get_screenshot_as_png()
-                    st.image(screenshot, caption="Captura do WhatsApp Web", use_container_width=True)
+                    st.image(screenshot, caption="Captura do WhatsApp Web — Escaneie o QR Code com seu celular", 
+                             use_container_width=True)
                 except Exception as e:
                     st.error(f"Erro ao capturar tela: {e}")
+                    st.info("💡 Tente clicar em 'Reconectar' para iniciar uma nova sessão.")
 
-        # Verificar status da conexão
-        if st.session_state.driver:
-            st.success("✅ **Status:** Navegador Conectado e Pronto!")
-            
-            # Botão de envio (SÓ APARECE SE CONECTADO)
+        # === BOTÃO DE ENVIO ===
+        if has_active_session:
+            st.markdown("---")
             if st.button("📨 2. Iniciar Envio em Massa", type="primary", use_container_width=True):
                 if len(edited_df) == 0:
                     st.error("❌ A lista de contatos está vazia!")
                 else:
                     st.markdown("### 📤 Enviando...")
-                    with st.spinner("O robô está trabalhando... Pode minimizar a janela do Chrome."):
+                    with st.spinner("O robô está trabalhando... Aguarde o envio ser concluído."):
                         success, errors = send_messages_selenium(edited_df, delay_between_messages)
                     
                     st.success(f"✅ Finalizado! {success} enviados, {errors} erros.")
                     st.balloons()
-        else:
-            st.warning("⚠️ **Status:** Navegador Desconectado. Clique no botão 1 para iniciar.")
 
 else:
     # Tela inicial quando não há dados
