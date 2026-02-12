@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 import os
+import hashlib
 from datetime import datetime
 import urllib.parse
 from selenium import webdriver
@@ -248,6 +249,63 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# =====================================================
+# SISTEMA DE LOGIN
+# =====================================================
+
+# Banco de usuários (senha armazenada como hash SHA-256)
+# Para adicionar novos usuários, use: hashlib.sha256("senha".encode()).hexdigest()
+USERS = {
+    "adm01": {
+        "nome": "Administrador 01",
+        "senha_hash": hashlib.sha256("adm01".encode()).hexdigest(),
+    },
+    "adm02": {
+        "nome": "Administrador 02",
+        "senha_hash": hashlib.sha256("adm02".encode()).hexdigest(),
+    },
+    "adm03": {
+        "nome": "Administrador 03",
+        "senha_hash": hashlib.sha256("adm03".encode()).hexdigest(),
+    },
+    "adm04": {
+        "nome": "Administrador 04",
+        "senha_hash": hashlib.sha256("adm04".encode()).hexdigest(),
+    },
+    "adm05": {
+        "nome": "Administrador 05",
+        "senha_hash": hashlib.sha256("adm05".encode()).hexdigest(),
+    },
+}
+
+def check_login(username, password):
+    """Verifica se o login é válido"""
+    if username.lower() in USERS:
+        user = USERS[username.lower()]
+        if hashlib.sha256(password.encode()).hexdigest() == user["senha_hash"]:
+            return True, user["nome"]
+    return False, None
+
+def do_logout():
+    """Realiza logout e limpa a sessão"""
+    # Fechar navegador se estiver aberto
+    if st.session_state.get('driver'):
+        try:
+            st.session_state.driver.quit()
+        except:
+            pass
+        st.session_state.driver = None
+    
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.user_display_name = None
+
+# Inicializar estado de login
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.user_display_name = None
+
 # CSS customizado para visual moderno
 st.markdown("""
 <style>
@@ -353,16 +411,113 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header principal
-st.markdown("""
+# =====================================================
+# TELA DE LOGIN (aparece se não está logado)
+# =====================================================
+if not st.session_state.logged_in:
+    # CSS específico para tela de login
+    st.markdown("""
+    <style>
+        .login-container {
+            max-width: 420px;
+            margin: 2rem auto;
+            padding: 2.5rem;
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-header h2 {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+        .login-header p {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.95rem;
+        }
+        .login-icon {
+            font-size: 3.5rem;
+            display: block;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Layout centralizado
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    
+    with col_center:
+        st.markdown("""
+        <div class="login-header">
+            <span class="login-icon">📱</span>
+            <h2>WhatsApp Massa</h2>
+            <p>Faça login para acessar o sistema</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("👤 Usuário", placeholder="Digite seu usuário")
+            password = st.text_input("🔒 Senha", type="password", placeholder="Digite sua senha")
+            
+            submit = st.form_submit_button("🚀 Entrar", use_container_width=True, type="primary")
+            
+            if submit:
+                if username and password:
+                    valid, display_name = check_login(username, password)
+                    if valid:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username.lower()
+                        st.session_state.user_display_name = display_name
+                        st.rerun()
+                    else:
+                        st.error("❌ Usuário ou senha incorretos!")
+                else:
+                    st.warning("⚠️ Preencha usuário e senha.")
+        
+        st.markdown("---")
+        st.markdown("""
+        <div style="text-align: center; color: rgba(255,255,255,0.4); font-size: 0.8rem;">
+            <p>💡 Solicite seu acesso ao administrador do sistema.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.stop()  # Para a execução aqui se não estiver logado
+
+# =====================================================
+# CONTEÚDO PRINCIPAL (só aparece se logado)
+# =====================================================
+
+# Header principal com nome do usuário
+st.markdown(f"""
 <div class="main-header">
     <h1>📱 WhatsApp Massa</h1>
-    <p>Envie mensagens personalizadas para múltiplos contatos de forma automática</p>
+    <p>Bem-vindo(a), <strong>{st.session_state.user_display_name}</strong>! Envie mensagens personalizadas para múltiplos contatos.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
+    # Info do usuário logado
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; text-align: center;">
+        <span style="font-size: 2rem;">👤</span>
+        <p style="color: white; font-weight: 600; margin: 0.3rem 0 0 0;">{st.session_state.user_display_name}</p>
+        <p style="color: rgba(255,255,255,0.7); font-size: 0.8rem; margin: 0;">@{st.session_state.username}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚪 Sair (Logout)", use_container_width=True):
+        do_logout()
+        st.rerun()
+    
+    st.markdown("---")
     st.markdown("### ⚙️ Configurações")
     
     # Upload de arquivo
