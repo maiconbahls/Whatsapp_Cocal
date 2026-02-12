@@ -52,40 +52,78 @@ def init_browser(headless=False):
     if st.session_state.driver is None:
         try:
             options = webdriver.ChromeOptions()
-            options.add_argument("--start-maximized")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
             
-            # Se estiver na nuvem (Streamlit Cloud), precisamos de argumentos específicos
-            if headless:
-                options.add_argument("--headless")
-                options.add_argument("--no-sandbox")
-                options.add_argument("--disable-dev-shm-usage")
-                options.add_argument("--disable-gpu")
+            # Detectar se estamos em ambiente Linux/Cloud
+            is_cloud = os.name != 'nt'
             
-            # Tentar usar o webdriver_manager primeiro (funciona bem local)
-            try:
-                service = Service(ChromeDriverManager().install())
-                driver = webdriver.Chrome(service=service, options=options)
-            except Exception as e1:
-                # Fallback para Streamlit Cloud / Linux
+            if is_cloud or headless:
+                # === Flags obrigatórias para containers (Streamlit Cloud / Docker) ===
+                options.add_argument("--headless=new")          # Modo headless novo (mais estável)
+                options.add_argument("--no-sandbox")            # Obrigatório em containers
+                options.add_argument("--disable-dev-shm-usage") # Evita crash por /dev/shm pequeno
+                options.add_argument("--disable-gpu")           # Sem placa de vídeo
+                options.add_argument("--disable-software-rasterizer")
+                options.add_argument("--remote-debugging-port=9222")  # Necessário para DevTools
+                options.add_argument("--window-size=1920,1080")
+                options.add_argument("--disable-extensions")
+                options.add_argument("--disable-background-timer-throttling")
+                options.add_argument("--disable-backgrounding-occluded-windows")
+                options.add_argument("--disable-renderer-backgrounding")
+                options.add_argument("--disable-features=VizDisplayCompositor")
+                options.add_argument("--single-process")        # Mais estável em containers
+                
+                # Definir localização do Chromium no Linux
+                if os.path.exists("/usr/bin/chromium"):
+                    options.binary_location = "/usr/bin/chromium"
+                elif os.path.exists("/usr/bin/chromium-browser"):
+                    options.binary_location = "/usr/bin/chromium-browser"
+                elif os.path.exists("/usr/bin/google-chrome"):
+                    options.binary_location = "/usr/bin/google-chrome"
+            else:
+                # === Modo local (Windows com janela visível) ===
+                options.add_argument("--start-maximized")
+                options.add_argument("--disable-blink-features=AutomationControlled")
+                options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                options.add_experimental_option('useAutomationExtension', False)
+            
+            # Tentar iniciar o driver
+            driver = None
+            errors = []
+            
+            # Tentativa 1: webdriver_manager (funciona bem no local/Windows)
+            if not is_cloud:
                 try:
-                    # No Linux/Streamlit Cloud, o chromium-driver já está no PATH
+                    service = Service(ChromeDriverManager().install())
+                    driver = webdriver.Chrome(service=service, options=options)
+                except Exception as e1:
+                    errors.append(f"webdriver_manager: {str(e1)[:100]}")
+            
+            # Tentativa 2: ChromeDriver no PATH (Cloud/Linux)
+            if driver is None:
+                try:
                     driver = webdriver.Chrome(options=options)
                 except Exception as e2:
-                    # Tentativa final: especificar caminhos comuns no Linux
-                    try:
-                        options.binary_location = "/usr/bin/chromium"
-                        driver = webdriver.Chrome(options=options)
-                    except Exception as e3:
-                        raise Exception(f"Erro ao iniciar Chrome: {str(e1)} | {str(e2)} | {str(e3)}")
+                    errors.append(f"PATH: {str(e2)[:100]}")
+            
+            # Tentativa 3: Chromium-driver em caminhos conhecidos
+            if driver is None:
+                for chromedriver_path in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver", "/usr/lib/chromium-browser/chromedriver"]:
+                    if os.path.exists(chromedriver_path):
+                        try:
+                            service = Service(chromedriver_path)
+                            driver = webdriver.Chrome(service=service, options=options)
+                            break
+                        except Exception as e3:
+                            errors.append(f"{chromedriver_path}: {str(e3)[:100]}")
+            
+            if driver is None:
+                raise Exception(" | ".join(errors))
             
             st.session_state.driver = driver
             return driver
         except Exception as e:
             st.error(f"Erro ao iniciar o navegador: {e}")
-            st.info("💡 **Dica:** Certifique-se de que o Google Chrome está instalado no seu computador.")
+            st.info("💡 **Dica:** Certifique-se de que o Google Chrome/Chromium está instalado.")
             return None
     return st.session_state.driver
 
